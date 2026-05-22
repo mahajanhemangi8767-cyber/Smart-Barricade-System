@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Smart Barricade / Car – Neon Dashboard</title>
+<style>
+  :root{
+    --bg:#071023;
+    --panel:#0b1224;
+    --muted:#121733;
+    --bord:#1f2743;
+    --accent:#69a8ff;
+    --neon:#5ee2a3;
+    --text:#dbe6ff;
+    --danger:#ff6b6b;
+    --warning:#ffd166;
+    --safe:#24d07f;
+    --glass: rgba(255,255,255,0.03);
+    --card-r:14px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; background:linear-gradient(180deg,#03051a 0%, #071023 60%);
+    color:var(--text); font-family: Inter, system-ui, Roboto, "Segoe UI", Arial;
+    -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    padding:18px;
+  }
+
+  /* Header */
+  header{
+    display:flex; align-items:center; gap:12px; padding:12px 18px;
+    background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:12px; border:1px solid rgba(255,255,255,0.03);
+    box-shadow: 0 8px 40px rgba(2,6,23,0.6);
+    margin-bottom:16px;
+  }
+  .hdr-left{display:flex;align-items:center;gap:12px}
+  .status-dot{width:12px;height:12px;border-radius:50%; box-shadow:0 0 10px rgba(0,0,0,0.6)}
+  .title{font-weight:700;font-size:18px}
+  .hdr-info{margin-left:8px; font-size:12px; opacity:0.85}
+  .top-actions{margin-left:auto; display:flex; gap:8px; align-items:center}
+  .pill{background:rgba(255,255,255,0.02); padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.02); font-size:13px}
+
+  /* Layout */
+  .layout{display:grid; grid-template-columns: 1.25fr 0.85fr; gap:18px; align-items:start; max-width:1400px; margin:0 auto;}
+  .card{background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005)); border:1px solid var(--bord); border-radius:var(--card-r); padding:16px; box-shadow: 0 10px 30px rgba(3,6,18,0.6);}
+
+  /* Simulation panel (left) */
+  .sim-wrap { height:640px; display:flex; flex-direction:column; gap:12px; }
+  .sim { position:relative; flex:1; border-radius:12px; overflow:hidden; background:linear-gradient(180deg,#07112b,#051025); border:1px solid rgba(255,255,255,0.02); padding:18px;}
+  .sim-inner { position:relative; width:100%; height:100%; border-radius:10px; overflow:hidden; background:radial-gradient(1000px 400px at 30% 40%, rgba(66,86,137,0.06), transparent 20%); }
+  .radar-canvas{ position:absolute; left:0; top:0; width:100%; height:100%; }
+  .tower{ position:absolute; right:18px; top:18px; width:84px; display:flex; justify-content:center; align-items:center }
+  .lightBox{ width:72px; padding:10px; border-radius:10px; background:linear-gradient(180deg,#091028,#071023); border:1px solid rgba(255,255,255,0.02); box-shadow: 0 4px 18px rgba(2,8,30,0.6)}
+  .light{ width:36px; height:36px; border-radius:50%; background:#11142a; margin:6px auto; box-shadow: inset 0 -4px 10px rgba(0,0,0,0.6) }
+  .light.on.green{ background:var(--safe); box-shadow:0 6px 20px rgba(36,208,127,0.18) }
+  .light.on.yellow{ background:var(--warning); box-shadow:0 6px 20px rgba(255,209,102,0.18) }
+  .light.on.red{ background:var(--danger); box-shadow:0 6px 20px rgba(255,107,107,0.18) }
+
+  /* Car + crowd visuals */
+  .car{ position:absolute; width:72px; height:110px; left:50%; top:50%; transform:translate(-50%,-50%); border-radius:14px;
+    background:linear-gradient(180deg,#0f223a,#071224); border:1px solid rgba(255,255,255,0.03); box-shadow: 0 18px 40px rgba(6,12,28,0.6), inset 0 2px 0 rgba(255,255,255,0.02);
+    display:flex; justify-content:center; align-items:center; }
+  .car-ico{ width:42px; height:60px; background:linear-gradient(180deg,#08122a,#0f1b3a); border-radius:8px; box-shadow: inset 0 -6px 12px rgba(0,0,0,0.75); border:1px solid rgba(255,255,255,0.02) }
+  .crowd{ position:absolute; width:36px; height:36px; border-radius:50%; background: radial-gradient(circle at 30% 30%, #ffdba7,#ff9b4a); border:2px solid rgba(255,180,110,0.5); box-shadow: 0 10px 40px rgba(255,140,60,0.12); cursor:grab; }
+
+  /* controls row neon */
+  .controls { display:flex; gap:10px; justify-content:center; margin-top:10px }
+  .ctrl-btn{ background:linear-gradient(180deg,#071431,#08182b); border:1px solid rgba(255,255,255,0.03); color:var(--text); padding:12px 16px; border-radius:12px; font-weight:700; cursor:pointer; min-width:110px; box-shadow: 0 6px 18px rgba(9,16,34,0.8); }
+  .ctrl-btn.neon { box-shadow: 0 6px 30px rgba(105,168,255,0.12), 0 0 12px rgba(105,168,255,0.06); border-color: rgba(105,168,255,0.12) }
+  .ctrl-btn.danger{ box-shadow:0 6px 30px rgba(255,107,107,0.12) }
+
+  /* Right column cards */
+  .grid-rows{ display:grid; grid-template-rows: auto auto auto; gap:12px; }
+  .kpis{ display:grid; grid-template-columns: repeat(2,1fr); gap:12px; }
+  .metric { padding:12px; border-radius:10px; background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005)); border:1px solid rgba(255,255,255,0.02) }
+
+  .metric h4{ margin:0; font-size:13px; color:rgba(255,255,255,0.9) }
+  .metric .val{ font-weight:800; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:15px; margin-top:6px; color:#dff2ff }
+
+  .bar { height:12px; background: rgba(255,255,255,0.03); border-radius:999px; overflow:hidden; border:1px solid rgba(255,255,255,0.02) }
+  .bar > i{ height:100%; display:block; background:linear-gradient(90deg,var(--accent),#8b6bff); width:50% }
+
+  /* performance chart style */
+  .perf-wrap{ padding:12px; border-radius:10px; background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.008)); border:1px solid rgba(255,255,255,0.02) }
+
+  /* System health & notifications */
+  .sys-health{ display:flex; gap:10px; align-items:center; justify-content:space-between; }
+  .health-pill { padding:8px 10px; border-radius:10px; font-weight:700; display:inline-flex; gap:8px; align-items:center; background:linear-gradient(180deg,#061423,#04101f); border:1px solid rgba(255,255,255,0.02) }
+  .health-green{ color:var(--neon); box-shadow:0 8px 28px rgba(46,214,161,0.06) }
+  .health-yellow{ color:var(--warning) }
+  .health-red{ color:var(--danger) }
+
+  .alerts { margin-top:8px; display:flex; flex-direction:column; gap:8px; max-height:120px; overflow:auto; padding-right:6px }
+  .alert { padding:10px; border-radius:8px; background:linear-gradient(180deg,#081029,#061025); border:1px solid rgba(255,255,255,0.02); font-weight:700; font-size:13px }
+  .alert.warn { border-left:4px solid var(--warning); color:var(--warning) }
+  .alert.crit { border-left:4px solid var(--danger); color:var(--danger) }
+  .alert.safe { border-left:4px solid var(--safe); color:var(--neon) }
+
+  /* log */
+  .log{ height:140px; overflow:auto; padding:10px; border-radius:8px; background:linear-gradient(180deg,#041025,#03101f); border:1px solid rgba(255,255,255,0.02); font-size:13px; color:#cbd7ff }
+
+  /* utility */
+  .muted{ opacity:0.7; font-size:13px }
+  .legend{ display:flex; gap:10px; align-items:center; font-size:13px; margin-bottom:8px }
+  .legend .dot{ width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:6px }
+
+  /* responsive */
+  @media (max-width:1000px){
+    .layout{ grid-template-columns:1fr; }
+    .sim-wrap{ height:520px }
+    .sim{ height:420px }
+    .controls .ctrl-btn{ min-width:80px }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hdr-left">
+    <div class="status-dot" id="statusDot" style="background:var(--safe)"></div>
+    <div>
+      <div class="title">Smart Barricade / Car – Live Dashboard</div>
+      <div class="hdr-info muted">Rules: &gt;5cm 🟢 | =5cm 🟡 | ≤3cm 🔴 — Use arrow keys or buttons</div>
+    </div>
+  </div>
+
+  <div class="top-actions">
+    <div class="pill">Mode: <strong id="modeLbl" style="margin-left:8px">Manual</strong></div>
+    <div style="width:10px"></div>
+    <div class="pill" id="batteryTop">Battery: 100%</div>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- LEFT: simulation -->
+  <div class="card sim-wrap">
+    <h3 style="margin:0 0 6px">Simulation Area</h3>
+    <div class="sim">
+      <div class="sim-inner" id="simInner">
+        <canvas id="radar" class="radar-canvas" width="1200" height="720"></canvas>
+
+        <!-- car -->
+        <div id="car" class="car">
+          <div class="car-ico"></div>
+        </div>
+
+        <!-- crowd (draggable) -->
+        <div id="crowd" class="crowd" title="Drag me to simulate crowd"></div>
+
+        <!-- traffic tower -->
+        <div class="tower">
+          <div class="lightBox">
+            <div id="lred" class="light"></div>
+            <div id="lyellow" class="light"></div>
+            <div id="lgreen" class="light on green"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- controls -->
+    <div class="controls">
+      <button class="ctrl-btn neon" data-dir="up">⬆ Forward</button>
+      <button class="ctrl-btn" id="autoBtn">🤖 Auto</button>
+      <button class="ctrl-btn neon" data-dir="right">➡ Right</button>
+      <button class="ctrl-btn neon" data-dir="left">⬅ Left</button>
+      <button class="ctrl-btn danger" id="stopBtn">⏹ Stop</button>
+      <button class="ctrl-btn neon" data-dir="down">⬇ Backward</button>
+      <button class="ctrl-btn" id="centerBtn" style="min-width:140px">🎯 Center Vehicle</button>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: dashboard -->
+  <div class="card">
+    <h3 style="margin:0 0 8px">Dashboard</h3>
+
+    <div class="grid-rows">
+
+      <!-- top KPIs -->
+      <div class="kpis">
+        <div class="metric">
+          <h4>Sensor Distance</h4>
+          <div class="val" id="distLbl">— cm</div>
+          <div class="muted" style="margin-top:6px">Live distance between car and crowd</div>
+        </div>
+
+        <div class="metric">
+          <h4>State</h4>
+          <div class="val" id="stateLbl">SAFE</div>
+          <div class="muted" style="margin-top:6px">Applied rule</div>
+        </div>
+
+        <div class="metric">
+          <h4>Battery</h4>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="val mono" id="batLbl">100%</div>
+            <div style="flex:1">
+              <div class="bar"><i id="batBar" style="width:100%"></i></div>
+            </div>
+          </div>
+          <div class="muted" style="margin-top:6px" id="batNote">Drains while moving, trickle when idle.</div>
+        </div>
+
+        <div class="metric">
+          <h4>Wheel Movements</h4>
+          <div class="val" id="movesLbl">0</div>
+          <div class="muted" style="margin-top:6px">L:<span id="cL">0</span> • R:<span id="cR">0</span> • F:<span id="cF">0</span> • B:<span id="cB">0</span></div>
+        </div>
+      </div>
+
+      <!-- performance + system health -->
+      <div class="perf-wrap">
+        <div style="display:flex; justify-content:space-between; align-items:center">
+          <div class="legend"><span class="dot" style="background:var(--safe)"></span>Safe</div>
+          <div class="legend"><span class="dot" style="background:var(--warning)"></span>Caution</div>
+          <div class="legend"><span class="dot" style="background:var(--danger)"></span>Danger</div>
+        </div>
+
+        <canvas id="perfChart" width="460" height="120" style="margin-top:10px; border-radius:8px;"></canvas>
+        <div class="muted" style="margin-top:8px">Shows cumulative seconds spent in each state.</div>
+
+        <div style="display:flex; justify-content:space-between; gap:12px; margin-top:12px;">
+          <div style="flex:1;" class="metric">
+            <h4>System Health</h4>
+            <div style="display:flex; gap:8px; align-items:center; margin-top:8px">
+              <div class="health-pill health-green" id="healthStatus">All Systems Nominal</div>
+              <div class="muted" style="margin-left:auto; font-size:13px" id="connStatus">Connectivity: Online</div>
+            </div>
+            <div class="muted" style="margin-top:8px; display:flex; gap:8px; font-size:13px">
+              <div>Redundant sensors: <strong id="redundancy">Active</strong></div>
+              <div style="margin-left:auto">Comm: <strong id="commSec">Encrypted</strong></div>
+            </div>
+          </div>
+
+          <div style="width:260px;" class="metric">
+            <h4>Notifications / Alerts</h4>
+            <div class="alerts" id="alerts">
+              <div class="alert safe">No current alerts</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Logs -->
+      <div class="metric">
+        <h4 style="margin-bottom:8px">Event Log</h4>
+        <div id="log" class="log"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========== Utilities ========== */
+const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+const logBox = document.getElementById('log');
+function log(msg){
+  const t = new Date().toLocaleTimeString();
+  logBox.innerHTML = `<div style="opacity:.75;font-size:12px">${t}</div><div style="margin-bottom:6px">${msg}</div>` + logBox.innerHTML;
+}
+
+/* ========== Elements ========== */
+const simInner = document.getElementById('simInner');
+const simRectEl = simInner;
+const radar = document.getElementById('radar');
+const rctx = radar.getContext('2d');
+
+const car = document.getElementById('car');
+const crowd = document.getElementById('crowd');
+
+const lred = document.getElementById('lred'), lyellow = document.getElementById('lyellow'), lgreen = document.getElementById('lgreen');
+const statusDot = document.getElementById('statusDot');
+
+const distLbl = document.getElementById('distLbl');
+const stateLbl = document.getElementById('stateLbl');
+
+const batLbl = document.getElementById('batLbl'), batBar = document.getElementById('batBar'), batNote = document.getElementById('batNote');
+const movesLbl = document.getElementById('movesLbl'), cL = document.getElementById('cL'), cR = document.getElementById('cR'), cF = document.getElementById('cF'), cB = document.getElementById('cB');
+
+const perfChart = document.getElementById('perfChart'), pctx = perfChart.getContext('2d');
+const perfCtx = pctx;
+
+const alertsEl = document.getElementById('alerts');
+const healthStatus = document.getElementById('healthStatus');
+const connStatus = document.getElementById('connStatus');
+const redundancyEl = document.getElementById('redundancy');
+const commSec = document.getElementById('commSec');
+const batteryTop = document.getElementById('batteryTop');
+const modeLbl = document.getElementById('modeLbl');
+
+/* ========== State ========== */
+let simRect, carPos, crowdPos;
+let step = 18;               // px per move
+let pxPerCm = 8;             // px : cm scale (adjusted for larger visual)
+let battery = 100;
+let moving = false;
+let moveCounts = {L:0,R:0,F:0,B:0};
+let autoMode = false, moveTimer = null;
+
+let state = 'SAFE';
+let accum = { SAFE:0, CAUTION:0, DANGER:0 };
+let lastTick = performance.now();
+
+/* ========== Init placement ========== */
+function refreshRects(){
+  simRect = simInner.getBoundingClientRect();
+  // set canvas size to pixel-perfect
+  radar.width = Math.floor(simRect.width);
+  radar.height = Math.floor(simRect.height);
+  perfChart.width = 460;
+  perfChart.height = 120;
+}
+function centerCar(){
+  refreshRects();
+  carPos = { x: Math.round(simRect.width/2 - car.offsetWidth/2), y: Math.round(simRect.height/2 - car.offsetHeight/2) };
+  placeCar();
+}
+function placeCar(){ car.style.left = carPos.x + 'px'; car.style.top = carPos.y + 'px'; }
+function placeCrowd(x = simRect.width*0.72, y = simRect.height*0.32){
+  crowdPos = { x: Math.round(x - (crowd.offsetWidth/2)), y: Math.round(y - (crowd.offsetHeight/2)) };
+  crowd.style.left = crowdPos.x + 'px'; crowd.style.top = crowdPos.y + 'px';
+}
+window.addEventListener('resize', ()=>{ centerCar(); placeCrowd(crowdPos.x, crowdPos.y); });
+
+/* ========== Movement controls ========== */
+function applyMovement(dir){
+  moving = true;
+  const old = {...carPos};
+  if(dir==='up'){ carPos.y -= step; moveCounts.F++; }
+  if(dir==='down'){ carPos.y += step; moveCounts.B++; }
+  if(dir==='left'){ carPos.x -= step; moveCounts.L++; }
+  if(dir==='right'){ carPos.x += step; moveCounts.R++; }
+  // bounds
+  carPos.x = clamp(carPos.x, 6, simRect.width - car.offsetWidth - 6);
+  carPos.y = clamp(carPos.y, 6, simRect.height - car.offsetHeight - 6);
+  if(old.x !== carPos.x || old.y !== carPos.y){ battery = Math.max(0, battery - 0.25); }
+  placeCar();
+  updateMovementPanel();
+}
+function updateMovementPanel(){
+  const total = moveCounts.L+moveCounts.R+moveCounts.F+moveCounts.B;
+  movesLbl.textContent = total;
+  cL.textContent = moveCounts.L; cR.textContent = moveCounts.R; cF.textContent = moveCounts.F; cB.textContent = moveCounts.B;
+  batLbl.textContent = Math.round(battery) + '%';
+  batteryTop.textContent = 'Battery: ' + Math.round(battery) + '%';
+}
+
+/* Button wiring */
+document.querySelectorAll('.ctrl-btn[data-dir]').forEach(b=>{
+  b.addEventListener('click', ()=> applyMovement(b.dataset.dir) );
+});
+document.getElementById('stopBtn').addEventListener('click', ()=>{
+  autoMode = false;
+  clearInterval(moveTimer);
+  moving = false;
+  log('<b>Stopped</b>');
+  modeLbl.innerText = 'Manual';
+});
+document.getElementById('centerBtn').addEventListener('click', ()=>{ centerCar(); log('<b>Centered vehicle</b>'); });
+
+document.getElementById('autoBtn').addEventListener('click', (e)=>{
+  autoMode = !autoMode;
+  modeLbl.innerText = autoMode ? 'Auto' : 'Manual';
+  if(autoMode){
+    log('<b>Auto mode enabled</b>');
+    moveTimer = setInterval(()=>{
+      // simple autopilot: move towards or away depending on distance
+      const c = carCenter(), t = crowdCenter();
+      const dx = t.x - c.x, dy = t.y - c.y;
+      // small randomness
+      if(Math.abs(dx) > Math.abs(dy)){
+        applyMovement(dx>0 ? 'right' : 'left');
+      } else {
+        applyMovement(dy>0 ? 'down' : 'up');
+      }
+    }, 260);
+  } else {
+    clearInterval(moveTimer);
+    log('<b>Auto mode disabled</b>');
+  }
+});
+
+/* Keyboard support */
+window.addEventListener('keydown', e=>{
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
+    e.preventDefault();
+    const map = { ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right' };
+    applyMovement(map[e.key]);
+  }
+});
+
+/* Drag crowd (mouse) */
+let dragging=false, offX=0, offY=0;
+crowd.addEventListener('mousedown', e=>{
+  dragging = true; crowd.style.cursor = 'grabbing';
+  const rect = crowd.getBoundingClientRect();
+  offX = e.clientX - rect.left; offY = e.clientY - rect.top;
+});
+window.addEventListener('mouseup', ()=>{ dragging=false; crowd.style.cursor='grab'; });
+window.addEventListener('mousemove', e=>{
+  if(!dragging) return;
+  const r = simInner.getBoundingClientRect();
+  let x = clamp(e.clientX - r.left - offX, 6, r.width - crowd.offsetWidth - 6);
+  let y = clamp(e.clientY - r.top - offY, 6, r.height - crowd.offsetHeight - 6);
+  placeCrowd(x + crowd.offsetWidth/2, y + crowd.offsetHeight/2);
+});
+
+/* Touch support for crowd */
+crowd.addEventListener('touchstart', e=>{
+  dragging=true; offX = e.touches[0].clientX - crowd.getBoundingClientRect().left; offY = e.touches[0].clientY - crowd.getBoundingClientRect().top;
+});
+window.addEventListener('touchend', ()=>{ dragging=false; });
+window.addEventListener('touchmove', e=>{
+  if(!dragging) return;
+  const r = simInner.getBoundingClientRect();
+  const tx = e.touches[0].clientX, ty = e.touches[0].clientY;
+  let x = clamp(tx - r.left - offX, 6, r.width - crowd.offsetWidth - 6);
+  let y = clamp(ty - r.top - offY, 6, r.height - crowd.offsetHeight - 6);
+  placeCrowd(x + crowd.offsetWidth/2, y + crowd.offsetHeight/2);
+});
+
+/* ========== Sensor rules & lights ========== */
+function carCenter(){ return { x: carPos.x + car.offsetWidth/2, y: carPos.y + car.offsetHeight/2 }; }
+function crowdCenter(){ return { x: crowdPos.x + crowd.offsetWidth/2, y: crowdPos.y + crowd.offsetHeight/2 }; }
+
+let ruleTimer=null;
+function setLights(r=false,y=false,g=true){
+  lred.className = 'light' + (r ? ' on red' : '');
+  lyellow.className = 'light' + (y ? ' on yellow' : '');
+  lgreen.className = 'light' + (g ? ' on green' : '');
+  statusDot.style.background = r ? 'var(--danger)' : y ? 'var(--warning)' : 'var(--safe)';
+}
+function applyRules(distanceCm){
+  if(ruleTimer){ clearTimeout(ruleTimer); ruleTimer = null; }
+  if(distanceCm <= 3){
+    setLights(true,false,false); setState('DANGER');
+  } else if(Math.abs(distanceCm - 5) < 0.001 || Math.abs(distanceCm - 5) < 0.6){
+    ruleTimer = setTimeout(()=> setLights(false,true,false), 500); setState('CAUTION');
+  } else {
+    ruleTimer = setTimeout(()=> setLights(false,false,true), 1000); setState('SAFE');
+  }
+}
+function setState(s){
+  if(state !== s){
+    log(`<b>State → ${s}</b>`);
+  }
+  state = s;
+  stateLbl.textContent = s;
+  // style influences
+  if(s === 'SAFE'){ stateLbl.style.color = 'var(--neon)'; }
+  else if(s === 'CAUTION'){ stateLbl.style.color = 'var(--warning)'; }
+  else { stateLbl.style.color = 'var(--danger)'; }
+}
+
+/* ========== Battery update ========== */
+function updateBattery(dt){
+  if(!moving && state === 'SAFE'){ battery = Math.min(100, battery + 0.03 * dt); }
+  if(state === 'DANGER'){ battery = Math.max(0, battery - 0.02 * dt); }
+  // also small drain when moving handled at move
+  batLbl.textContent = Math.round(battery) + '%';
+  batBar.style.width = Math.round(battery) + '%';
+  const warn = battery < 25;
+  if(warn){ batBar.style.background = 'linear-gradient(90deg,#ff7a7a,#ff3b3b)'; batNote.textContent = 'Low battery: limit movement'; }
+  else { batBar.style.background = 'linear-gradient(90deg,var(--accent),#8b6bff)'; batNote.textContent = 'Drains while moving, trickle charge when idle.'; }
+
+  // change health if very low
+  if(battery < 12){ healthStatus.className = 'health-pill health-red'; healthStatus.innerText = 'Battery critical'; }
+  else { healthStatus.className = 'health-pill health-green'; healthStatus.innerText = 'All Systems Nominal'; }
+}
+
+/* ========== Radar drawing ========== */
+let sweep = 0;
+function drawRadar(distancePx){
+  const w = radar.width, h = radar.height;
+  rctx.clearRect(0,0,w,h);
+  // background grid (concentric)
+  const cx = carCenter().x, cy = carCenter().y;
+  const maxR = Math.min(w,h) * 0.45;
+  rctx.strokeStyle = 'rgba(120,160,220,0.06)';
+  rctx.lineWidth = 1;
+  for(let r= maxR; r>0; r -= maxR/5){
+    rctx.beginPath(); rctx.arc(cx, cy, r, 0, Math.PI*2); rctx.stroke();
+  }
+  // sweep cone
+  rctx.save();
+  rctx.translate(cx, cy);
+  rctx.rotate(sweep);
+  const grd = rctx.createLinearGradient(0,0, maxR, 0);
+  grd.addColorStop(0, 'rgba(120,160,255,0.35)');
+  grd.addColorStop(1, 'rgba(120,160,255,0)');
+  rctx.fillStyle = grd;
+  rctx.beginPath();
+  rctx.moveTo(0,0);
+  rctx.arc(0,0, maxR, -0.08, 0.08);
+  rctx.closePath();
+  rctx.fill();
+  rctx.restore();
+  sweep += 0.035;
+
+  // draw line to target and a dot
+  const tgt = crowdCenter();
+  rctx.beginPath();
+  rctx.strokeStyle = 'rgba(106,162,255,0.9)';
+  rctx.lineWidth = 2;
+  rctx.moveTo(cx, cy);
+  rctx.lineTo(tgt.x, tgt.y);
+  rctx.stroke();
+
+  rctx.beginPath();
+  rctx.fillStyle = 'rgba(255,179,122,1)';
+  rctx.arc(tgt.x, tgt.y, 6, 0, Math.PI*2);
+  rctx.fill();
+
+  // distance circle
+  rctx.beginPath();
+  rctx.strokeStyle = 'rgba(138,223,171,0.25)';
+  rctx.lineWidth = 2;
+  rctx.arc(cx, cy, distancePx, 0, Math.PI*2);
+  rctx.stroke();
+}
+
+/* ========== Performance chart ========== */
+function drawPerformance(){
+  const w = perfChart.width, h = perfChart.height;
+  perfCtx.clearRect(0,0,w,h);
+  perfCtx.fillStyle = '#06102a'; perfCtx.fillRect(0,0,w,h);
+  const total = Math.max(1, accum.SAFE + accum.CAUTION + accum.DANGER);
+  const W = w - 40, H = 36, X = 20, Y = 32;
+  const wSafe = W * (accum.SAFE / total), wCau = W * (accum.CAUTION / total), wDan = W * (accum.DANGER / total);
+  // background box
+  perfCtx.fillStyle = 'rgba(10,20,40,0.7)'; perfCtx.fillRect(X-6, Y-8, W+12, H+16);
+  // segments
+  perfCtx.fillStyle = 'rgba(36,208,127,0.95)'; perfCtx.fillRect(X, Y, wSafe, H);
+  perfCtx.fillStyle = 'rgba(255,209,102,0.95)'; perfCtx.fillRect(X + wSafe, Y, wCau, H);
+  perfCtx.fillStyle = 'rgba(255,107,107,0.95)'; perfCtx.fillRect(X + wSafe + wCau, Y, wDan, H);
+  // text
+  perfCtx.fillStyle = '#cfe7ff';
+  perfCtx.font = '12px Inter, sans-serif';
+  perfCtx.fillText(`Safe: ${accum.SAFE.toFixed(1)}s`, X + 6, Y - 10);
+  perfCtx.fillText(`Caution: ${accum.CAUTION.toFixed(1)}s`, X + 160, Y - 10);
+  perfCtx.fillText(`Danger: ${accum.DANGER.toFixed(1)}s`, X + 300, Y - 10);
+}
+
+/* ========== Alerts helper ========== */
+function pushAlert(text, level='warn'){
+  // level: warn, crit, safe
+  const div = document.createElement('div');
+  div.className = 'alert ' + (level==='crit' ? 'crit' : level==='safe' ? 'safe' : 'warn');
+  div.innerText = text;
+  alertsEl.prepend(div);
+  // keep 6
+  while(alertsEl.children.length > 6) alertsEl.removeChild(alertsEl.lastChild);
+}
+
+/* ========== Main loop ========== */
+function tick(now){
+  const dt = (now - lastTick) / 1000; lastTick = now;
+
+  // compute distance center-to-center (px)
+  const c = carCenter(), t = crowdCenter();
+  const dx = t.x - c.x, dy = t.y - c.y;
+  const distPx = Math.hypot(dx, dy);
+  const distCm = +(distPx / pxPerCm).toFixed(2);
+  distLbl.textContent = distCm + ' cm';
+
+  // accumulate time
+  accum[state] += dt;
+
+  // rules
+  applyRules(distCm);
+
+  // battery
+  updateBattery(dt);
+
+  // idle
+  moving = false;
+
+  // draw visuals
+  drawRadar(distPx);
+  drawPerformance();
+
+  requestAnimationFrame(tick);
+}
+
+/* ========== Boot ========== */
+function boot(){
+  refreshRects();
+  centerCar();
+  placeCrowd();
+  updateMovementPanel();
+  setLights(false,false,true);
+  log('Dashboard ready. Drag the orange crowd dot, move car with buttons/keys, or enable Auto.');
+  requestAnimationFrame(tick);
+}
+boot();
+
+/* ========== Simulated status updates for System Health & Alerts (demo) ========== */
+setInterval(()=>{
+  // random connectivity toggles
+  const online = Math.random() > 0.06;
+  connStatus.innerText = 'Connectivity: ' + (online ? 'Online' : 'Offline');
+  connStatus.style.color = online ? '#9fe8b9' : '#ff8b8b';
+  if(!online) pushAlert('Connectivity lost — switching to fail-safe', 'crit');
+
+  // redundant sensors toggle demo
+  redundancyEl.innerText = Math.random() > 0.1 ? 'Active' : 'Inactive';
+  commSec.innerText = Math.random() > 0.05 ? 'Encrypted' : 'Not Encrypted';
+
+  // occasionally push an alert
+  if(Math.random() > 0.92) pushAlert('Predictive: high congestion expected in 8 min', 'warn');
+  if(Math.random() > 0.985) pushAlert('Emergency evacuation recommended', 'crit');
+
+}, 4500);
+
+</script>
+
+</body>
+</html>
